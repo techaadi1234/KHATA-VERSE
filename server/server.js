@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import connectDB from './config/db.js';
+import authRoutes from './routes/authRoutes.js';
 
 // Load environment configurations
 dotenv.config();
@@ -15,6 +16,7 @@ const app = express();
 app.use(cors());
 app.use(express.json()); // Parses incoming raw JSON requests
 
+app.use('/api/auth', authRoutes);
 // Root Health-Check Route
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -32,7 +34,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 app.listen(PORT, () => {
   console.log(`🚀 Khataverse Server firing up in ${process.env.NODE_ENV} mode on port ${PORT}`);
