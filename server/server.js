@@ -5,7 +5,7 @@ import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import menuRoutes from './routes/menuRoutes.js';
-
+import transactionRoutes from './routes/transactionRoutes.js';
 // Load environment configurations
 dotenv.config();
 
@@ -21,6 +21,7 @@ app.use(express.json()); // Parses incoming raw JSON requests
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/menu', menuRoutes);
+app.use('/api/transactions', transactionRoutes);
 // Root Health-Check Route
 app.get('/', (req, res) => {
   res.status(200).json({
