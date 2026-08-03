@@ -3,7 +3,7 @@ import generateToken from '../config/generateToken.js';
 
 // @desc    Register a new user (Student or Vendor)
 // @route   POST /api/auth/register
-export const registerUser = async (req, res) => {
+export const registerUser = async (req, res,next) => {
   try {
     const { name, email, password, role, monthlyBudget } = req.body;
 
@@ -35,13 +35,14 @@ export const registerUser = async (req, res) => {
       res.status(400).json({ message: 'Invalid user data received' });
     }
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
+    // res.status(500).json({ message: error.message });
   }
 };
 
 // @desc    Auth user & get token (Login)
 // @route   POST /api/auth/login
-export const loginUser = async (req, res) => {
+export const loginUser = async (req, res,next) => {
   try {
     const { email, password } = req.body;
 
@@ -61,6 +62,7 @@ export const loginUser = async (req, res) => {
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
+    // res.status(500).json({ message: error.message });
   }
 };
