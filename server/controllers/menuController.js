@@ -56,3 +56,35 @@ export const toggleItemAvailability = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+export const updateMenuItem = async (req, res, next) => {
+  try {
+    const { name, price, category } = req.body;
+
+    const item = await MenuItem.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Menu item not found.' });
+    }
+
+    item.name = name || item.name;
+    item.price = price !== undefined ? Number(price) : item.price;
+    item.category = category || item.category;
+
+    const updatedItem = await item.save();
+    return res.json(updatedItem);
+  } catch (error) {
+    return next(error);
+  }
+};
+export const deleteMenuItem = async (req, res, next) => {
+  try {
+    const item = await MenuItem.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Menu item not found.' });
+    }
+
+    await item.deleteOne();
+    return res.json({ message: 'Menu item removed successfully.' });
+  } catch (error) {
+    return next(error);
+  }
+};

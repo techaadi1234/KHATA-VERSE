@@ -5,7 +5,7 @@ import Room from '../models/Room.js';
 // @desc    Record a new canteen run & split costs across room members
 // @route   POST /api/transactions
 // @access  Private
-export const addTransaction = async (req, res) => {
+export const addTransaction = async (req, res, next) => {
   try {
     const { memberOrders } = req.body; // Array of { user: UserId, items: [{ menuItem, itemName, qty, price }] }
 
@@ -14,7 +14,7 @@ export const addTransaction = async (req, res) => {
     }
 
     const payerUser = await User.findById(req.user._id);
-    if (!payerUser.room) {
+    if (!payerUser || !payerUser.room) {
       return res.status(400).json({ message: 'You must be part of a room to split expenses.' });
     }
 
@@ -43,19 +43,19 @@ export const addTransaction = async (req, res) => {
       .populate('payer', 'name email')
       .populate('memberOrders.user', 'name email');
 
-    res.status(201).json(populatedTransaction);
+    return res.status(201).json(populatedTransaction);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return next(error);
   }
 };
 
 // @desc    Get room's full ledger history
 // @route   GET /api/transactions/room
 // @access  Private
-export const getRoomTransactions = async (req, res) => {
+export const getRoomTransactions = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
-    if (!user.room) {
+    if (!user || !user.room) {
       return res.status(400).json({ message: 'User is not part of any room' });
     }
 
@@ -64,23 +64,24 @@ export const getRoomTransactions = async (req, res) => {
       .populate('memberOrders.user', 'name email')
       .sort({ createdAt: -1 });
 
-    res.json(history);
+    return res.json(history);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return next(error);
   }
 };
 
 // @desc    Get vendor sales report (Vendor tracking what got sold)
 // @route   GET /api/transactions/vendor-summary
 // @access  Private/Vendor
-export const getVendorSummary = async (req, res) => {
+export const getVendorSummary = async (req, res, next) => {
   try {
     const transactions = await Transaction.find({})
       .populate('payer', 'name email')
+      .populate('memberOrders.user', 'name email')
       .sort({ createdAt: -1 });
 
-    res.json(transactions);
+    return res.json(transactions);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return next(error);
   }
 };
