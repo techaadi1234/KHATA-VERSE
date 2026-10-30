@@ -8,13 +8,46 @@ import VendorDashboard from './pages/VendorDashboard';
 import Ledger from './pages/Ledger';
 import Dashboard from './pages/Dashboard';
 
-// Route protection helper
-const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('khataverse_token');
-  return token ? children : <Navigate to="/" replace />;
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('khataverse_user') || 'null');
+  } catch {
+    return null;
+  }
 };
 
-// Layout component to control Navbar visibility
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  const token = localStorage.getItem('khataverse_token');
+  const user = getStoredUser();
+
+  if (!token || !user) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    const fallback = user.role === 'vendor' ? '/vendor-dashboard' : '/room-hub';
+    return <Navigate to={fallback} replace />;
+  }
+
+  return children;
+};
+
+const AuthRoute = () => {
+  const token = localStorage.getItem('khataverse_token');
+  const user = getStoredUser();
+
+  if (token && user) {
+    return (
+      <Navigate
+        to={user.role === 'vendor' ? '/vendor-dashboard' : '/room-hub'}
+        replace
+      />
+    );
+  }
+
+  return <Auth />;
+};
+
 const MainLayout = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/';
@@ -23,60 +56,53 @@ const MainLayout = () => {
     <div className="min-h-screen bg-darkBg text-white antialiased">
       {!isAuthPage && <Navbar />}
       <Routes>
-        <Route path="/" element={<Auth />} />
-        
-        <Route 
-          path="/room-hub" 
+        <Route path="/" element={<AuthRoute />} />
+
+        <Route
+          path="/room-hub"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['student']}>
               <RoomHub />
             </ProtectedRoute>
-          } 
+          }
         />
-        
-        <Route 
-          path="/vendor-dashboard" 
+
+        <Route
+          path="/canteen"
           element={
-            <ProtectedRoute>
-              <div className="p-8 text-center text-neonCyan font-bold">Canteen Bhaiya Dashboard Placeholder</div>
+            <ProtectedRoute allowedRoles={['student']}>
+              <Canteen />
             </ProtectedRoute>
-          } 
+          }
         />
-        <Route 
-  path="/canteen" 
-  element={
-    <ProtectedRoute>
-      <Canteen />
-    </ProtectedRoute>
-  } 
-/>
 
-<Route 
-  path="/ledger" 
-  element={
-    <ProtectedRoute>
-      <Ledger />
-    </ProtectedRoute>
-  } 
-/>
+        <Route
+          path="/ledger"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <Ledger />
+            </ProtectedRoute>
+          }
+        />
 
-<Route 
-  path="/vendor-dashboard" 
-  element={
-    <ProtectedRoute>
-      <VendorDashboard />
-    </ProtectedRoute>
-  } 
-/>
-<Route 
-  path="/dashboard" 
-  element={
-    <ProtectedRoute>
-      <Dashboard />
-    </ProtectedRoute>
-  } 
-/>
-        
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['student']}>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/vendor-dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['vendor']}>
+              <VendorDashboard />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

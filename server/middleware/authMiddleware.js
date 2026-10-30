@@ -15,14 +15,17 @@ export const protect = async (req, res, next) => {
 
       // Attach user object to request (excluding password)
       req.user = await User.findById(decoded.id).select('-password');
-      next();
+      if (!req.user) {
+        return res.status(401).json({ message: 'Not authorized, user not found' });
+      }
+      return next();
     } catch (error) {
-      res.status(401).json({ message: 'Not authorized, token failed' });
+      return res.status(401).json({ message: 'Not authorized, token failed' });
     }
   }
 
   if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token provided' });
+    return res.status(401).json({ message: 'Not authorized, no token provided' });
   }
 };
 
@@ -31,6 +34,6 @@ export const vendorOnly = (req, res, next) => {
   if (req.user && req.user.role === 'vendor') {
     next();
   } else {
-    res.status(403).json({ message: 'Access denied: Vendor privilege required' });
+    return res.status(403).json({ message: 'Access denied: Vendor privilege required' });
   }
 };

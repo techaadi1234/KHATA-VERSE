@@ -1,6 +1,7 @@
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import Room from '../models/Room.js';
+import MenuItem from '../models/MenuItem.js';
 
 // @desc    Record a new canteen run & split costs across room members
 // @route   POST /api/transactions
@@ -16,6 +17,23 @@ export const addTransaction = async (req, res, next) => {
     const payerUser = await User.findById(req.user._id);
     if (!payerUser || !payerUser.room) {
       return res.status(400).json({ message: 'You must be part of a room to split expenses.' });
+    }
+
+    const orderedIds = [
+      ...new Set(
+        memberOrders.flatMap((order) => (order.items || []).map((item) => String(item.menuItem)))
+      ),
+    ].filter(Boolean);
+
+    if (orderedIds.length > 0) {
+      const menuDocs = await MenuItem.find({ _id: { $in: orderedIds } });
+      const unavailable = menuDocs.filter((item) => item.isAvailable === false);
+      if (unavailable.length > 0) {
+        const names = unavailable.map((item) => item.itemName).join(', ');
+        return res.status(400).json({
+          message: `${names} ran out at night canteen`,
+        });
+      }
     }
 
     // Process and calculate sub-totals for each friend
@@ -75,12 +93,28 @@ export const getRoomTransactions = async (req, res, next) => {
 // @access  Private/Vendor
 export const getVendorSummary = async (req, res, next) => {
   try {
+    if (!req.user || req.user.role !== 'vendor') {
+      return res.status(403).json({ message: 'Access denied: Vendor privilege required' });
+    }
+
+    // Return only sales-relevant data. Avoid exposing which students paid.
     const transactions = await Transaction.find({})
       .populate('payer', 'name email')
-      .populate('memberOrders.user', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    return res.json(transactions);
+    const safeTransactions = transactions.map((tx) => ({
+      _id: tx._id,
+      payer: tx.payer,
+      totalAmount: tx.totalAmount,
+      createdAt: tx.createdAt,
+      memberOrders: (tx.memberOrders || []).map((order) => ({
+        subTotal: order.subTotal,
+        items: order.items,
+      })),
+    }));
+
+    return res.json(safeTransactions);
   } catch (error) {
     return next(error);
   }

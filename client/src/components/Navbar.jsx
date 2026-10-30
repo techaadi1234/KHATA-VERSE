@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Receipt, Utensils,LayoutDashboard, LogOut, User } from 'lucide-react';
+import { Home, Receipt, Utensils, LayoutDashboard, LogOut, User, Store } from 'lucide-react';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const user = JSON.parse(localStorage.getItem('khataverse_user') || '{}');
+  const isVendor = user.role === 'vendor';
 
   const handleLogout = () => {
     localStorage.removeItem('khataverse_token');
@@ -13,19 +14,24 @@ const Navbar = () => {
     navigate('/');
   };
 
-  const navItems = [
+  const studentNav = [
     { name: 'Room Hub', path: '/room-hub', icon: Home },
     { name: 'Khata Ledger', path: '/ledger', icon: Receipt },
     { name: 'Canteen', path: '/canteen', icon: Utensils },
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   ];
 
+  const vendorNav = [
+    { name: 'Vendor Desk', path: '/vendor-dashboard', icon: Store },
+  ];
+
+  const navItems = isVendor ? vendorNav : studentNav;
+  const homePath = isVendor ? '/vendor-dashboard' : '/room-hub';
+
   return (
     <nav className="bg-zinc-950/80 border-b border-zinc-800/80 backdrop-blur-md sticky top-0 z-50 px-6 py-3.5">
       <div className="max-w-6xl mx-auto flex items-center justify-between">
-        
-        {/* Brand Logo */}
-        <Link to="/room-hub" className="flex items-center gap-2">
+        <Link to={homePath} className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-black text-sm shadow-lg shadow-emerald-500/20">
             Ψ
           </div>
@@ -34,7 +40,6 @@ const Navbar = () => {
           </span>
         </Link>
 
-        {/* Navigation Links */}
         <div className="flex items-center gap-1 sm:gap-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -56,11 +61,17 @@ const Navbar = () => {
           })}
         </div>
 
-        {/* User Info & Logout */}
         <div className="flex items-center gap-3">
           <div className="hidden md:flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-xl">
-            <User className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-xs font-medium text-zinc-300">{user.name || 'Student'}</span>
+            <User className={`w-3.5 h-3.5 ${isVendor ? 'text-cyan-400' : 'text-emerald-400'}`} />
+            <span className="text-xs font-medium text-zinc-300">{user.name || 'User'}</span>
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                isVendor ? 'bg-cyan-500/15 text-cyan-400' : 'bg-emerald-500/15 text-emerald-400'
+              }`}
+            >
+              {isVendor ? 'Vendor' : 'Student'}
+            </span>
           </div>
           <button
             onClick={handleLogout}
@@ -70,7 +81,6 @@ const Navbar = () => {
             <LogOut className="w-4 h-4" />
           </button>
         </div>
-
       </div>
     </nav>
   );
