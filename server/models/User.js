@@ -33,11 +33,19 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 1500,
     },
+    // Active room currently selected by user for Canteen/Ledger
     room: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Room',
       default: null,
     },
+    // All rooms the user belongs to
+    rooms: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Room',
+      },
+    ],
   },
   { timestamps: true }
 );

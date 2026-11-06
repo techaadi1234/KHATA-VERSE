@@ -9,6 +9,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchAnalytics();
+
+    const handleRoomChanged = () => {
+      fetchAnalytics();
+    };
+    window.addEventListener('roomChanged', handleRoomChanged);
+    return () => window.removeEventListener('roomChanged', handleRoomChanged);
   }, []);
 
   const fetchAnalytics = async () => {

@@ -18,6 +18,13 @@ const Canteen = () => {
 
   useEffect(() => {
     fetchInitialData();
+
+    const handleRoomChanged = () => {
+      setCart({});
+      fetchInitialData();
+    };
+    window.addEventListener('roomChanged', handleRoomChanged);
+    return () => window.removeEventListener('roomChanged', handleRoomChanged);
   }, []);
 
   const fetchInitialData = async () => {
