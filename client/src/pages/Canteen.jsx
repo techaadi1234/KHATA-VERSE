@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import API from '../api';
-import { ShoppingBag, Plus, Minus, Send, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, Send, CheckCircle2, User, Users } from 'lucide-react';
 
 const isMenuAvailable = (item) => item?.isAvailable !== false;
 
 const Canteen = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [roomMembers, setRoomMembers] = useState([]);
+  const [hasRoom, setHasRoom] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -30,19 +31,32 @@ const Canteen = () => {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
+      setError('');
       const [menuRes, roomRes] = await Promise.all([
         API.get('/menu'),
-        API.get('/rooms/myroom'),
+        API.get('/rooms/myroom').catch(() => ({ data: null })), // Don't crash if user has no room
       ]);
 
       setMenuItems(menuRes.data || []);
 
-      if (roomRes.data && roomRes.data.members) {
+      const currentUser = JSON.parse(localStorage.getItem('khataverse_user') || '{}');
+
+      if (roomRes.data && roomRes.data.members && roomRes.data.members.length > 0) {
+        setHasRoom(true);
         setRoomMembers(roomRes.data.members);
-        setSelectedUser(roomRes.data.members[0]?._id || '');
+        setSelectedUser(roomRes.data.members[0]?._id || currentUser._id || '');
+      } else {
+        // Individual user using KhataVerse solo without a room
+        setHasRoom(false);
+        const selfMember = {
+          _id: currentUser._id || 'solo_user',
+          name: currentUser.name || 'You',
+        };
+        setRoomMembers([selfMember]);
+        setSelectedUser(selfMember._id);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load canteen data.');
+      setError(err.response?.data?.message || 'Failed to load canteen menu.');
     } finally {
       setLoading(false);
     }
@@ -97,20 +111,24 @@ const Canteen = () => {
 
     const memberOrders = Object.entries(cart)
       .map(([userId, itemsObj]) => ({
-        user: userId,
+        user: userId === 'solo_user' ? (JSON.parse(localStorage.getItem('khataverse_user') || '{}')._id) : userId,
         items: Object.values(itemsObj),
       }))
       .filter((order) => order.items.length > 0);
 
     if (memberOrders.length === 0) {
-      setError('Please select items for at least one room member.');
+      setError(hasRoom ? 'Please select items for at least one room member.' : 'Please add items to your cart.');
       setSubmitting(false);
       return;
     }
 
     try {
       await API.post('/transactions', { memberOrders });
-      setSuccess('Canteen order recorded successfully to room ledger!');
+      setSuccess(
+        hasRoom
+          ? 'Canteen order recorded successfully to room ledger!'
+          : 'Canteen order recorded to your personal monthly budget!'
+      );
       setCart({});
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to place canteen order.');
@@ -171,7 +189,9 @@ const Canteen = () => {
             Campus Canteen
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
-            Select canteen items, assign orders to roomies, and split the bill.
+            {hasRoom
+              ? 'Select canteen items, assign orders to roomies, and split the bill.'
+              : 'Browse canteen menu and track expenses against your personal monthly budget.'}
           </p>
         </div>
 
@@ -190,20 +210,41 @@ const Canteen = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-7 space-y-4">
             <div className="bg-zinc-900/60 border border-zinc-800 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
-                Ordering For:
-              </span>
-              <select
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-                className="bg-zinc-950 border border-zinc-800 text-emerald-400 font-semibold rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500 cursor-pointer"
-              >
-                {roomMembers.map((member) => (
-                  <option key={member._id} value={member._id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
+                  {hasRoom ? 'Ordering For:' : 'Active Mode:'}
+                </span>
+                <span
+                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                    hasRoom
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-teal-500/10 text-teal-300 border-teal-500/20'
+                  }`}
+                >
+                  {hasRoom ? 'Room Splitting' : 'Personal Solo Tab'}
+                </span>
+              </div>
+
+              {hasRoom ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-400 font-medium">Roommate:</span>
+                  <select
+                    value={selectedUser}
+                    onChange={(e) => setSelectedUser(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 text-emerald-400 font-semibold rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    {roomMembers.map((member) => (
+                      <option key={member._id} value={member._id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-xs text-zinc-400">
+                  Tracking for <strong className="text-white">{roomMembers[0]?.name || 'You'}</strong> (Personal Budget)
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -336,9 +377,13 @@ const Canteen = () => {
 
             <div className="space-y-3.5 border-t border-zinc-800 pt-4">
               <div className="flex justify-between items-center text-xs text-zinc-400">
-                <span>Room split</span>
+                <span>{hasRoom ? 'Room split' : 'Expense type'}</span>
                 <span className="text-zinc-300 font-medium">
-                  {activeOrders.length > 0 ? `Shared between ${activeOrders.length} roomies` : '—'}
+                  {hasRoom
+                    ? activeOrders.length > 0
+                      ? `Shared between ${activeOrders.length} roomies`
+                      : '—'
+                    : 'Personal Solo Tab'}
                 </span>
               </div>
 
@@ -356,9 +401,13 @@ const Canteen = () => {
               >
                 {submitting ? (
                   'Recording...'
-                ) : (
+                ) : hasRoom ? (
                   <>
                     Confirm & Split Order <Send className="w-4 h-4" />
+                  </>
+                ) : (
+                  <>
+                    Confirm Personal Order <Send className="w-4 h-4" />
                   </>
                 )}
               </button>

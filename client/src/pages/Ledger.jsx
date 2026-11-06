@@ -15,6 +15,7 @@ const Ledger = () => {
   const [transactions, setTransactions] = useState([]);
   const [balances, setBalances] = useState([]);
   const [settlements, setSettlements] = useState([]);
+  const [hasRoom, setHasRoom] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -39,6 +40,7 @@ const Ledger = () => {
   const fetchLedger = async () => {
     try {
       setLoading(true);
+      setError('');
       const [txRes, roomRes] = await Promise.all([
         API.get('/transactions/room'),
         API.get('/rooms/myroom').catch(() => ({ data: null })),
@@ -46,6 +48,7 @@ const Ledger = () => {
 
       const txList = txRes.data || [];
       const roomMembers = roomRes.data?.members || [];
+      setHasRoom(roomMembers.length > 0);
 
       setTransactions(txList);
       calculateBalancesAndSettlements(txList, roomMembers);
@@ -160,7 +163,9 @@ const Ledger = () => {
             Khata Ledger
           </h1>
           <p className="text-zinc-400 text-sm mt-1">
-            Exact settlement plan, roommate net balances, and itemized canteen history.
+            {hasRoom
+              ? 'Exact settlement plan, roommate net balances, and itemized canteen history.'
+              : 'Personal canteen expenses, budget tracking, and order history.'}
           </p>
         </div>
 
@@ -182,7 +187,9 @@ const Ledger = () => {
                   Who Owes Whom
                 </h3>
                 <p className="text-xs text-zinc-400">
-                  Exact payments required to settle all room tabs completely
+                  {hasRoom
+                    ? 'Exact payments required to settle all room tabs completely'
+                    : 'Track your personal expenses without roommate debts'}
                 </p>
               </div>
             </div>
@@ -197,9 +204,13 @@ const Ledger = () => {
           {settlements.length === 0 ? (
             <div className="py-10 px-4 text-center rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 space-y-2">
               <CheckCircle2 className="w-9 h-9 text-emerald-400 mx-auto" />
-              <p className="text-sm font-bold text-white">All Settled Up!</p>
-              <p className="text-xs text-zinc-400">
-                Nobody in this room owes anyone. All roommate balances are clear.
+              <p className="text-sm font-bold text-white">
+                {hasRoom ? 'All Settled Up!' : 'Personal Tab Active'}
+              </p>
+              <p className="text-xs text-zinc-400 max-w-md mx-auto">
+                {hasRoom
+                  ? 'Nobody in this room owes anyone. All roommate balances are clear.'
+                  : 'You are using KhataVerse in Solo Mode. All orders are tracked against your personal budget with no roommate debts.'}
               </p>
             </div>
           ) : (
@@ -292,71 +303,76 @@ const Ledger = () => {
         </div>
 
         {/* Room Net Balances Overview */}
-        <div className="bg-zinc-900/60 border border-zinc-800 backdrop-blur-xl rounded-2xl p-6 shadow-xl space-y-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2 text-white border-b border-zinc-800 pb-3">
-            <Users className="w-5 h-5 text-emerald-400" /> Roommate Net Balances
-          </h3>
+        {hasRoom && balances.length > 0 && (
+          <div className="bg-zinc-900/60 border border-zinc-800 backdrop-blur-xl rounded-2xl p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2 text-white border-b border-zinc-800 pb-3">
+              <Users className="w-5 h-5 text-emerald-400" /> Roommate Net Balances
+            </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {balances.map((member) => {
-              const isPositive = member.netBalance > 0.01;
-              const isNegative = member.netBalance < -0.01;
-              const isYou = currentUser && String(currentUser._id) === String(member.id);
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {balances.map((member) => {
+                const isPositive = member.netBalance > 0.01;
+                const isNegative = member.netBalance < -0.01;
+                const isYou = currentUser && String(currentUser._id) === String(member.id);
 
-              return (
-                <div
-                  key={member.id}
-                  className={`bg-zinc-950 border p-4 rounded-xl flex items-center justify-between ${
-                    isYou ? 'border-zinc-700' : 'border-zinc-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 flex items-center justify-center text-xs font-bold uppercase">
-                      {member.name.charAt(0)}
+                return (
+                  <div
+                    key={member.id}
+                    className={`bg-zinc-950 border p-4 rounded-xl flex items-center justify-between ${
+                      isYou ? 'border-zinc-700' : 'border-zinc-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 flex items-center justify-center text-xs font-bold uppercase">
+                        {member.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm text-white">
+                          {member.name}
+                          {isYou && <span className="text-emerald-400 text-xs ml-1">(You)</span>}
+                        </p>
+                        <span className="text-[10px] text-zinc-500 uppercase font-semibold">
+                          {isPositive ? 'Gets Back' : isNegative ? 'Owes' : 'Settled'}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm text-white">
-                        {member.name}
-                        {isYou && <span className="text-emerald-400 text-xs ml-1">(You)</span>}
-                      </p>
-                      <span className="text-[10px] text-zinc-500 uppercase font-semibold">
-                        {isPositive ? 'Gets Back' : isNegative ? 'Owes' : 'Settled'}
+                    <div className="text-right">
+                      <span
+                        className={`text-sm font-bold flex items-center justify-end gap-1 font-mono ${
+                          isPositive
+                            ? 'text-emerald-400'
+                            : isNegative
+                            ? 'text-rose-400'
+                            : 'text-zinc-500'
+                        }`}
+                      >
+                        {isPositive ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : isNegative ? (
+                          <ArrowDownLeft className="w-4 h-4" />
+                        ) : null}
+                        ₹{Math.abs(member.netBalance).toFixed(2)}
                       </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span
-                      className={`text-sm font-bold flex items-center justify-end gap-1 font-mono ${
-                        isPositive
-                          ? 'text-emerald-400'
-                          : isNegative
-                          ? 'text-rose-400'
-                          : 'text-zinc-500'
-                      }`}
-                    >
-                      {isPositive ? (
-                        <ArrowUpRight className="w-4 h-4" />
-                      ) : isNegative ? (
-                        <ArrowDownLeft className="w-4 h-4" />
-                      ) : null}
-                      ₹{Math.abs(member.netBalance).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Transactions History */}
         <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 space-y-4">
           <h3 className="text-lg font-semibold flex items-center gap-2 text-white border-b border-zinc-800 pb-3">
-            <Receipt className="w-5 h-5 text-emerald-400" /> Canteen Orders & Splits
+            <Receipt className="w-5 h-5 text-emerald-400" />{' '}
+            {hasRoom ? 'Canteen Orders & Splits' : 'Personal Canteen Orders'}
           </h3>
 
           {transactions.length === 0 ? (
             <p className="text-zinc-500 text-sm py-4 text-center">
-              No transactions recorded yet for this room.
+              {hasRoom
+                ? 'No transactions recorded yet for this room.'
+                : 'No personal canteen orders recorded yet. Visit the Canteen to place your first order!'}
             </p>
           ) : (
             <div className="space-y-4">

@@ -15,8 +15,8 @@ export const addTransaction = async (req, res, next) => {
     }
 
     const payerUser = await User.findById(req.user._id);
-    if (!payerUser || !payerUser.room) {
-      return res.status(400).json({ message: 'You must be part of a room to split expenses.' });
+    if (!payerUser) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
     const orderedIds = [
@@ -41,17 +41,19 @@ export const addTransaction = async (req, res, next) => {
     const processedMemberOrders = memberOrders.map((order) => {
       const subTotal = order.items.reduce((acc, item) => acc + item.price * item.qty, 0);
       calculatedTotal += subTotal;
+      const memberUserId =
+        order.user && order.user !== 'solo_user' ? order.user : req.user._id;
       return {
-        user: order.user,
+        user: memberUserId,
         items: order.items,
         subTotal,
       };
     });
 
-    // Create the transaction log in DB
+    // Create the transaction log in DB (room is optional for solo tracking)
     const transaction = await Transaction.create({
       payer: req.user._id,
-      room: payerUser.room,
+      room: payerUser.room || null,
       totalAmount: calculatedTotal,
       memberOrders: processedMemberOrders,
     });
@@ -67,17 +69,27 @@ export const addTransaction = async (req, res, next) => {
   }
 };
 
-// @desc    Get room's full ledger history
+// @desc    Get room's full ledger history or personal history if not in a room
 // @route   GET /api/transactions/room
 // @access  Private
 export const getRoomTransactions = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
-    if (!user || !user.room) {
-      return res.status(400).json({ message: 'User is not part of any room' });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const history = await Transaction.find({ room: user.room })
+    // If user has an active room, fetch room ledger. Otherwise, fetch their personal transactions.
+    const query = user.room
+      ? { room: user.room }
+      : {
+          $or: [
+            { payer: user._id },
+            { 'memberOrders.user': user._id },
+          ],
+        };
+
+    const history = await Transaction.find(query)
       .populate('payer', 'name email')
       .populate('memberOrders.user', 'name email')
       .sort({ createdAt: -1 });
